@@ -1,1 +1,711 @@
+import json
+import os
+from datetime import datetime
 
+DATA_FILE = "vehicle_service_records.json"
+
+class VehicleServiceSystem:
+    def __init__(self):
+        self.records = self.load_data()
+
+    def load_data(self):
+        if os.path.exists(DATA_FILE):
+            try:
+                with open(DATA_FILE, "r") as file:
+                    return json.load(file)
+            except:
+                return []
+        return []
+
+    def save_data(self):
+        with open(DATA_FILE, "w") as file:
+            json.dump(self.records, file, indent=4)
+
+    def generate_id(self):
+        if not self.records:
+            return 1001
+        return max(record["service_id"] for record in self.records) + 1
+
+    def add_vehicle(self):
+        print("\n--- Add Vehicle Service Record ---")
+
+        owner = input("Enter owner name: ").strip()
+        phone = input("Enter phone number: ").strip()
+        vehicle_no = input("Enter vehicle number: ").strip().upper()
+        vehicle_type = input("Enter vehicle type: ").strip()
+        model = input("Enter vehicle model: ").strip()
+        year = input("Enter manufacturing year: ").strip()
+        service_type = input("Enter service type: ").strip()
+        odometer = input("Enter current odometer reading: ").strip()
+        mechanic = input("Enter mechanic name: ").strip()
+
+        if not owner or not phone or not vehicle_no:
+            print("Required fields cannot be empty.")
+            return
+
+        for record in self.records:
+            if record["vehicle_no"] == vehicle_no:
+                print("Vehicle already exists.")
+                return
+
+        record = {
+            "service_id": self.generate_id(),
+            "owner": owner,
+            "phone": phone,
+            "vehicle_no": vehicle_no,
+            "vehicle_type": vehicle_type,
+            "model": model,
+            "year": year,
+            "service_type": service_type,
+            "odometer": odometer,
+            "mechanic": mechanic,
+            "date": datetime.now().strftime("%d-%m-%Y"),
+            "status": "Pending",
+            "parts": [],
+            "labor_charge": 0.0,
+            "parts_charge": 0.0,
+            "total": 0.0
+        }
+
+        self.records.append(record)
+        self.save_data()
+
+        print("Vehicle service record added successfully.")
+        print("Service ID:", record["service_id"])
+
+    def display_record(self, record):
+        print("\n" + "=" * 55)
+        print("SERVICE ID       :", record["service_id"])
+        print("OWNER NAME       :", record["owner"])
+        print("PHONE            :", record["phone"])
+        print("VEHICLE NUMBER   :", record["vehicle_no"])
+        print("VEHICLE TYPE     :", record["vehicle_type"])
+        print("MODEL            :", record["model"])
+        print("YEAR             :", record["year"])
+        print("SERVICE TYPE     :", record["service_type"])
+        print("ODOMETER         :", record["odometer"])
+        print("MECHANIC         :", record["mechanic"])
+        print("SERVICE DATE     :", record["date"])
+        print("STATUS           :", record["status"])
+        print("LABOR CHARGE     : ₹", format(record["labor_charge"], ".2f"))
+        print("PARTS CHARGE     : ₹", format(record["parts_charge"], ".2f"))
+        print("TOTAL BILL       : ₹", format(record["total"], ".2f"))
+
+        if record["parts"]:
+            print("\nREPLACED PARTS")
+            for part in record["parts"]:
+                print(
+                    part["name"],
+                    "| Quantity:",
+                    part["quantity"],
+                    "| Price: ₹",
+                    format(part["price"], ".2f")
+                )
+
+        print("=" * 55)
+
+    def view_all(self):
+        if not self.records:
+            print("\nNo service records found.")
+            return
+
+        print("\n--- All Vehicle Service Records ---")
+
+        for record in self.records:
+            self.display_record(record)
+
+    def search_vehicle(self):
+        print("\n--- Search Vehicle ---")
+        print("1. Search by Vehicle Number")
+        print("2. Search by Owner Name")
+        print("3. Search by Phone Number")
+        print("4. Search by Service ID")
+
+        choice = input("Enter choice: ").strip()
+        value = input("Enter search value: ").strip()
+
+        found = []
+
+        for record in self.records:
+            if choice == "1" and record["vehicle_no"].lower() == value.lower():
+                found.append(record)
+            elif choice == "2" and value.lower() in record["owner"].lower():
+                found.append(record)
+            elif choice == "3" and record["phone"] == value:
+                found.append(record)
+            elif choice == "4":
+                try:
+                    if record["service_id"] == int(value):
+                        found.append(record)
+                except:
+                    pass
+
+        if found:
+            for record in found:
+                self.display_record(record)
+        else:
+            print("No matching record found.")
+
+    def update_vehicle(self):
+        print("\n--- Update Vehicle Record ---")
+
+        try:
+            service_id = int(input("Enter service ID: "))
+        except:
+            print("Invalid service ID.")
+            return
+
+        record = self.find_by_id(service_id)
+
+        if not record:
+            print("Service record not found.")
+            return
+
+        print("Press Enter to keep the existing value.")
+
+        owner = input(f"Owner name [{record['owner']}]: ").strip()
+        phone = input(f"Phone [{record['phone']}]: ").strip()
+        model = input(f"Model [{record['model']}]: ").strip()
+        service_type = input(f"Service type [{record['service_type']}]: ").strip()
+        odometer = input(f"Odometer [{record['odometer']}]: ").strip()
+        mechanic = input(f"Mechanic [{record['mechanic']}]: ").strip()
+
+        if owner:
+            record["owner"] = owner
+        if phone:
+            record["phone"] = phone
+        if model:
+            record["model"] = model
+        if service_type:
+            record["service_type"] = service_type
+        if odometer:
+            record["odometer"] = odometer
+        if mechanic:
+            record["mechanic"] = mechanic
+
+        self.save_data()
+        print("Record updated successfully.")
+
+    def delete_vehicle(self):
+        print("\n--- Delete Service Record ---")
+
+        try:
+            service_id = int(input("Enter service ID: "))
+        except:
+            print("Invalid service ID.")
+            return
+
+        record = self.find_by_id(service_id)
+
+        if not record:
+            print("Service record not found.")
+            return
+
+        confirm = input(
+            f"Delete service record {service_id}? (yes/no): "
+        ).lower()
+
+        if confirm == "yes":
+            self.records.remove(record)
+            self.save_data()
+            print("Record deleted successfully.")
+        else:
+            print("Deletion cancelled.")
+
+    def find_by_id(self, service_id):
+        for record in self.records:
+            if record["service_id"] == service_id:
+                return record
+        return None
+
+    def add_parts(self):
+        print("\n--- Add Replacement Parts ---")
+
+        try:
+            service_id = int(input("Enter service ID: "))
+        except:
+            print("Invalid service ID.")
+            return
+
+        record = self.find_by_id(service_id)
+
+        if not record:
+            print("Service record not found.")
+            return
+
+        while True:
+            name = input("Enter part name: ").strip()
+
+            if name.lower() == "done":
+                break
+
+            try:
+                quantity = int(input("Enter quantity: "))
+                price = float(input("Enter price per unit: "))
+
+                if quantity <= 0 or price < 0:
+                    print("Invalid quantity or price.")
+                    continue
+
+                part = {
+                    "name": name,
+                    "quantity": quantity,
+                    "price": price
+                }
+
+                record["parts"].append(part)
+                record["parts_charge"] += quantity * price
+
+                print("Part added successfully.")
+
+            except:
+                print("Enter valid numeric values.")
+
+        record["total"] = record["labor_charge"] + record["parts_charge"]
+        self.save_data()
+
+        print("Parts information saved.")
+
+    def add_labor_charge(self):
+        print("\n--- Add Labor Charge ---")
+
+        try:
+            service_id = int(input("Enter service ID: "))
+            charge = float(input("Enter labor charge: "))
+
+            if charge < 0:
+                print("Charge cannot be negative.")
+                return
+
+        except:
+            print("Invalid input.")
+            return
+
+        record = self.find_by_id(service_id)
+
+        if not record:
+            print("Service record not found.")
+            return
+
+        record["labor_charge"] = charge
+        record["total"] = record["labor_charge"] + record["parts_charge"]
+
+        self.save_data()
+
+        print("Labor charge updated successfully.")
+        print("Total bill: ₹", format(record["total"], ".2f"))
+
+    def update_status(self):
+        print("\n--- Update Service Status ---")
+
+        try:
+            service_id = int(input("Enter service ID: "))
+        except:
+            print("Invalid service ID.")
+            return
+
+        record = self.find_by_id(service_id)
+
+        if not record:
+            print("Service record not found.")
+            return
+
+        print("1. Pending")
+        print("2. In Progress")
+        print("3. Completed")
+        print("4. Delivered")
+        print("5. Cancelled")
+
+        choice = input("Enter status choice: ")
+
+        status_list = {
+            "1": "Pending",
+            "2": "In Progress",
+            "3": "Completed",
+            "4": "Delivered",
+            "5": "Cancelled"
+        }
+
+        if choice not in status_list:
+            print("Invalid status.")
+            return
+
+        record["status"] = status_list[choice]
+        self.save_data()
+
+        print("Service status updated successfully.")
+
+    def generate_bill(self):
+        print("\n--- Generate Service Bill ---")
+
+        try:
+            service_id = int(input("Enter service ID: "))
+        except:
+            print("Invalid service ID.")
+            return
+
+        record = self.find_by_id(service_id)
+
+        if not record:
+            print("Service record not found.")
+            return
+
+        print("\n" + "=" * 55)
+        print("           VEHICLE SERVICE BILL")
+        print("=" * 55)
+        print("Service ID     :", record["service_id"])
+        print("Owner          :", record["owner"])
+        print("Phone          :", record["phone"])
+        print("Vehicle Number :", record["vehicle_no"])
+        print("Model          :", record["model"])
+        print("Service Type   :", record["service_type"])
+        print("Date           :", record["date"])
+        print("-" * 55)
+
+        print("Replacement Parts")
+
+        if record["parts"]:
+            for part in record["parts"]:
+                amount = part["quantity"] * part["price"]
+                print(
+                    part["name"],
+                    " x ",
+                    part["quantity"],
+                    " = ₹",
+                    format(amount, ".2f")
+                )
+        else:
+            print("No replacement parts.")
+
+        print("-" * 55)
+        print("Parts Charge   : ₹", format(record["parts_charge"], ".2f"))
+        print("Labor Charge   : ₹", format(record["labor_charge"], ".2f"))
+        print("Total Amount   : ₹", format(record["total"], ".2f"))
+        print("=" * 55)
+
+    def service_history(self):
+        print("\n--- Vehicle Service History ---")
+
+        vehicle_no = input("Enter vehicle number: ").strip().upper()
+
+        history = []
+
+        for record in self.records:
+            if record["vehicle_no"] == vehicle_no:
+                history.append(record)
+
+        if not history:
+            print("No service history found.")
+            return
+
+        print("\nService history for:", vehicle_no)
+
+        for record in history:
+            print("-" * 50)
+            print("Service ID :", record["service_id"])
+            print("Date       :", record["date"])
+            print("Service    :", record["service_type"])
+            print("Mechanic   :", record["mechanic"])
+            print("Status     :", record["status"])
+            print("Total      : ₹", format(record["total"], ".2f"))
+
+    def pending_services(self):
+        print("\n--- Pending and Active Services ---")
+
+        active = [
+            record for record in self.records
+            if record["status"] in ["Pending", "In Progress"]
+        ]
+
+        if not active:
+            print("No active services.")
+            return
+
+        for record in active:
+            print(
+                "ID:",
+                record["service_id"],
+                "| Vehicle:",
+                record["vehicle_no"],
+                "| Owner:",
+                record["owner"],
+                "| Status:",
+                record["status"]
+            )
+
+    def completed_services(self):
+        print("\n--- Completed Services ---")
+
+        completed = [
+            record for record in self.records
+            if record["status"] in ["Completed", "Delivered"]
+        ]
+
+        if not completed:
+            print("No completed services.")
+            return
+
+        for record in completed:
+            print(
+                "ID:",
+                record["service_id"],
+                "| Vehicle:",
+                record["vehicle_no"],
+                "| Owner:",
+                record["owner"],
+                "| Total: ₹",
+                format(record["total"], ".2f")
+            )
+
+    def revenue_report(self):
+        print("\n--- Revenue Report ---")
+
+        total_revenue = sum(record["total"] for record in self.records)
+        total_services = len(self.records)
+        completed = sum(
+            1 for record in self.records
+            if record["status"] in ["Completed", "Delivered"]
+        )
+        pending = sum(
+            1 for record in self.records
+            if record["status"] == "Pending"
+        )
+        progress = sum(
+            1 for record in self.records
+            if record["status"] == "In Progress"
+        )
+
+        print("Total Service Records :", total_services)
+        print("Completed Services    :", completed)
+        print("Pending Services      :", pending)
+        print("In Progress Services  :", progress)
+        print("Total Revenue         : ₹", format(total_revenue, ".2f"))
+
+        if total_services > 0:
+            average = total_revenue / total_services
+            print("Average Bill          : ₹", format(average, ".2f"))
+
+    def customer_report(self):
+        print("\n--- Customer Report ---")
+
+        customers = {}
+
+        for record in self.records:
+            phone = record["phone"]
+
+            if phone not in customers:
+                customers[phone] = {
+                    "owner": record["owner"],
+                    "vehicles": set(),
+                    "services": 0,
+                    "amount": 0
+                }
+
+            customers[phone]["vehicles"].add(record["vehicle_no"])
+            customers[phone]["services"] += 1
+            customers[phone]["amount"] += record["total"]
+
+        if not customers:
+            print("No customer data available.")
+            return
+
+        for phone, data in customers.items():
+            print("-" * 55)
+            print("Customer :", data["owner"])
+            print("Phone    :", phone)
+            print("Vehicles :", ", ".join(data["vehicles"]))
+            print("Services :", data["services"])
+            print("Spent    : ₹", format(data["amount"], ".2f"))
+
+    def sort_records(self):
+        print("\n--- Sort Service Records ---")
+        print("1. Sort by Owner Name")
+        print("2. Sort by Vehicle Number")
+        print("3. Sort by Service Date")
+        print("4. Sort by Total Bill")
+
+        choice = input("Enter choice: ")
+
+        if choice == "1":
+            sorted_records = sorted(
+                self.records,
+                key=lambda x: x["owner"].lower()
+            )
+        elif choice == "2":
+            sorted_records = sorted(
+                self.records,
+                key=lambda x: x["vehicle_no"]
+            )
+        elif choice == "3":
+            sorted_records = sorted(
+                self.records,
+                key=lambda x: datetime.strptime(
+                    x["date"], "%d-%m-%Y"
+                )
+            )
+        elif choice == "4":
+            sorted_records = sorted(
+                self.records,
+                key=lambda x: x["total"],
+                reverse=True
+            )
+        else:
+            print("Invalid choice.")
+            return
+
+        for record in sorted_records:
+            print(
+                record["service_id"],
+                "|",
+                record["owner"],
+                "|",
+                record["vehicle_no"],
+                "|",
+                record["service_type"],
+                "| ₹",
+                format(record["total"], ".2f")
+            )
+
+    def export_report(self):
+        filename = "vehicle_service_report.txt"
+
+        with open(filename, "w") as file:
+            file.write("VEHICLE SERVICE RECORD REPORT\n")
+            file.write("=" * 70 + "\n")
+
+            for record in self.records:
+                file.write(
+                    f"Service ID: {record['service_id']}\n"
+                )
+                file.write(
+                    f"Owner: {record['owner']}\n"
+                )
+                file.write(
+                    f"Phone: {record['phone']}\n"
+                )
+                file.write(
+                    f"Vehicle Number: {record['vehicle_no']}\n"
+                )
+                file.write(
+                    f"Model: {record['model']}\n"
+                )
+                file.write(
+                    f"Service Type: {record['service_type']}\n"
+                )
+                file.write(
+                    f"Mechanic: {record['mechanic']}\n"
+                )
+                file.write(
+                    f"Date: {record['date']}\n"
+                )
+                file.write(
+                    f"Status: {record['status']}\n"
+                )
+                file.write(
+                    f"Parts Charge: ₹{record['parts_charge']:.2f}\n"
+                )
+                file.write(
+                    f"Labor Charge: ₹{record['labor_charge']:.2f}\n"
+                )
+                file.write(
+                    f"Total: ₹{record['total']:.2f}\n"
+                )
+                file.write("-" * 70 + "\n")
+
+        print("Report exported successfully to", filename)
+
+    def dashboard(self):
+        total = len(self.records)
+        pending = sum(
+            1 for r in self.records if r["status"] == "Pending"
+        )
+        progress = sum(
+            1 for r in self.records if r["status"] == "In Progress"
+        )
+        completed = sum(
+            1 for r in self.records
+            if r["status"] in ["Completed", "Delivered"]
+        )
+        revenue = sum(r["total"] for r in self.records)
+
+        print("\n" + "=" * 60)
+        print("        VEHICLE SERVICE MANAGEMENT DASHBOARD")
+        print("=" * 60)
+        print("Total Vehicles/Services :", total)
+        print("Pending Services        :", pending)
+        print("In Progress Services    :", progress)
+        print("Completed Services      :", completed)
+        print("Total Revenue           : ₹", format(revenue, ".2f"))
+        print("=" * 60)
+
+    def menu(self):
+        while True:
+            print("\n")
+            print("=" * 60)
+            print("       VEHICLE SERVICE RECORD MANAGEMENT SYSTEM")
+            print("=" * 60)
+            print("1. Dashboard")
+            print("2. Add Vehicle Service Record")
+            print("3. View All Service Records")
+            print("4. Search Vehicle")
+            print("5. Update Vehicle Record")
+            print("6. Delete Service Record")
+            print("7. Add Replacement Parts")
+            print("8. Add Labor Charge")
+            print("9. Update Service Status")
+            print("10. Generate Bill")
+            print("11. Vehicle Service History")
+            print("12. View Pending Services")
+            print("13. View Completed Services")
+            print("14. Revenue Report")
+            print("15. Customer Report")
+            print("16. Sort Records")
+            print("17. Export Report")
+            print("18. Exit")
+            print("=" * 60)
+
+            choice = input("Enter your choice: ").strip()
+
+            if choice == "1":
+                self.dashboard()
+            elif choice == "2":
+                self.add_vehicle()
+            elif choice == "3":
+                self.view_all()
+            elif choice == "4":
+                self.search_vehicle()
+            elif choice == "5":
+                self.update_vehicle()
+            elif choice == "6":
+                self.delete_vehicle()
+            elif choice == "7":
+                self.add_parts()
+            elif choice == "8":
+                self.add_labor_charge()
+            elif choice == "9":
+                self.update_status()
+            elif choice == "10":
+                self.generate_bill()
+            elif choice == "11":
+                self.service_history()
+            elif choice == "12":
+                self.pending_services()
+            elif choice == "13":
+                self.completed_services()
+            elif choice == "14":
+                self.revenue_report()
+            elif choice == "15":
+                self.customer_report()
+            elif choice == "16":
+                self.sort_records()
+            elif choice == "17":
+                self.export_report()
+            elif choice == "18":
+                print("Thank you for using Vehicle Service Record Management System.")
+                break
+            else:
+                print("Invalid choice. Please try again.")
+
+if __name__ == "__main__":
+    system = VehicleServiceSystem()
+    system.menu()
